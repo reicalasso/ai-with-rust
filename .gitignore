@@ -1,0 +1,84 @@
+# Rust
+/target
+**/*.rs.bk
+*.pdb
+Cargo.lock
+
+# Environment files (keep .example files)
+cuda_env.sh
+run_cuda.sh
+!*.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Python (PyTorch CUDA libraries)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# Model files
+*.pt
+*.pth
+*.ckpt
+*.h5
+*.pb
+*.onnx
+models/
+checkpoints/
+
+# Data files
+*.csv
+*.json
+*.pkl
+*.pickle
+data/
+datasets/
+
+# Logs
+*.log
+logs/
+tensorboard/
+runs/
+
+# Generated files
+*.pdf
+*.png
+*.jpg
+*.jpeg
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# CUDA/LibTorch specific
+libtorch/
+*.cu.o
+*.ptx

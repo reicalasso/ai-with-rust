@@ -1,0 +1,56 @@
+# CUDA environment setup for Rust+PyTorch
+# Copy this file to cuda_env.sh and update paths for your system
+# Source before building or running: source cuda_env.sh
+
+# ============================================================================
+# CONFIGURATION - Update these paths for your system
+# ============================================================================
+
+# Find your PyTorch installation path:
+# python3 -c "import torch; print(torch.__path__[0])"
+TORCH_LIB="/path/to/python/site-packages/torch/lib"
+NVIDIA_BASE="/path/to/python/site-packages/nvidia"
+
+# Common locations:
+# Ubuntu/Debian: ~/.local/lib/python3.X/site-packages/torch
+# Conda: ~/anaconda3/envs/YOUR_ENV/lib/pythonX.X/site-packages/torch
+# System: /usr/local/lib/pythonX.X/dist-packages/torch
+
+# ============================================================================
+# EXAMPLE PATHS (uncomment and modify for your system)
+# ============================================================================
+
+# For local pip install (most common):
+# TORCH_LIB="/home/YOUR_USERNAME/.local/lib/python3.13/site-packages/torch/lib"
+# NVIDIA_BASE="/home/YOUR_USERNAME/.local/lib/python3.13/site-packages/nvidia"
+
+# For conda environment:
+# TORCH_LIB="/home/YOUR_USERNAME/anaconda3/envs/ml/lib/python3.11/site-packages/torch/lib"
+# NVIDIA_BASE="/home/YOUR_USERNAME/anaconda3/envs/ml/lib/python3.11/site-packages/nvidia"
+
+# For system-wide install:
+# TORCH_LIB="/usr/local/lib/python3.13/dist-packages/torch/lib"
+# NVIDIA_BASE="/usr/local/lib/python3.13/dist-packages/nvidia"
+
+# ============================================================================
+# ENVIRONMENT VARIABLES (usually don't need to change)
+# ============================================================================
+
+export LIBTORCH="${TORCH_LIB%/lib}"  # Remove /lib suffix
+export LIBTORCH_USE_PYTORCH=1
+
+export LD_LIBRARY_PATH="${TORCH_LIB}:${NVIDIA_BASE}/cuda_runtime/lib:${NVIDIA_BASE}/cublas/lib:${NVIDIA_BASE}/cudnn/lib:${NVIDIA_BASE}/cufft/lib:${NVIDIA_BASE}/curand/lib:${NVIDIA_BASE}/cusolver/lib:${NVIDIA_BASE}/cusparse/lib:${NVIDIA_BASE}/cuda_nvrtc/lib:${NVIDIA_BASE}/cuda_cupti/lib:$LD_LIBRARY_PATH"
+
+export LD_PRELOAD="${TORCH_LIB}/libtorch_cuda.so:${TORCH_LIB}/libc10_cuda.so"
+
+# ============================================================================
+# VERIFICATION
+# ============================================================================
+
+echo "✓ CUDA environment configured"
+echo "  LIBTORCH: $LIBTORCH"
+echo ""
+echo "To verify PyTorch CUDA is working:"
+echo "  python3 -c 'import torch; print(\"CUDA available:\", torch.cuda.is_available())'"
+echo ""
+echo "Now you can run: cargo run --release"

@@ -1,0 +1,56 @@
+#!/bin/bash
+
+# Quick launch script for Rust ML with CUDA
+# Copy this file to run_cuda.sh and update paths for your system
+
+# ============================================================================
+# CONFIGURATION - Update these paths to match your system
+# ============================================================================
+
+# Find your PyTorch installation:
+# python3 -c "import torch; print(torch.__path__[0] + '/lib')"
+TORCH_LIB="/path/to/python/site-packages/torch/lib"
+NVIDIA_BASE="/path/to/python/site-packages/nvidia"
+
+# Common locations:
+# Local pip:  /home/YOUR_USERNAME/.local/lib/python3.X/site-packages/
+# Conda:      /home/YOUR_USERNAME/anaconda3/envs/YOUR_ENV/lib/pythonX.X/site-packages/
+# System:     /usr/local/lib/pythonX.X/dist-packages/
+
+# ============================================================================
+# EXAMPLE PATHS (uncomment and modify)
+# ============================================================================
+
+# For local pip install (most common):
+# TORCH_LIB="/home/YOUR_USERNAME/.local/lib/python3.13/site-packages/torch/lib"
+# NVIDIA_BASE="/home/YOUR_USERNAME/.local/lib/python3.13/site-packages/nvidia"
+
+# For conda environment:
+# TORCH_LIB="/home/YOUR_USERNAME/anaconda3/envs/ml/lib/python3.11/site-packages/torch/lib"
+# NVIDIA_BASE="/home/YOUR_USERNAME/anaconda3/envs/ml/lib/python3.11/site-packages/nvidia"
+
+# ============================================================================
+# ENVIRONMENT SETUP
+# ============================================================================
+
+# Add all NVIDIA CUDA libraries to library path
+export LD_LIBRARY_PATH="${TORCH_LIB}:${NVIDIA_BASE}/cuda_runtime/lib:${NVIDIA_BASE}/cublas/lib:${NVIDIA_BASE}/cudnn/lib:${NVIDIA_BASE}/cufft/lib:${NVIDIA_BASE}/curand/lib:${NVIDIA_BASE}/cusolver/lib:${NVIDIA_BASE}/cusparse/lib:${NVIDIA_BASE}/cuda_nvrtc/lib:${NVIDIA_BASE}/cuda_cupti/lib:$LD_LIBRARY_PATH"
+
+# Force load CUDA libraries
+export LD_PRELOAD="${TORCH_LIB}/libtorch_cuda.so:${TORCH_LIB}/libc10_cuda.so"
+
+echo "LD_LIBRARY_PATH set"
+echo "LD_PRELOAD set to force load CUDA libraries"
+echo ""
+
+# ============================================================================
+# BUILD AND RUN (optional: uncomment to auto-build)
+# ============================================================================
+
+# Uncomment to automatically build before running:
+# echo "Building project..."
+# cargo build --release
+# echo ""
+
+# Run the compiled binary
+./target/release/rust-ml

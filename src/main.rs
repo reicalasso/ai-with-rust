@@ -1,31 +1,106 @@
-mod models;
-mod demos;
-mod advanced;
-mod showcases;
-mod advanced_features;
+mod cli;
 
+use rust_ml::{demos, showcases, advanced_features};
 use std::time::Instant;
 use tch::{
-    nn::{self, Module, ModuleT, OptimizerConfig},
+    nn::{self, Module, OptimizerConfig},
     Device, Kind, Tensor, IndexOp,
 };
 
 fn main() {
-    println!("\n╔════════════════════════════════════════════════════════════════╗");
-    println!("║                                                                ║");
-    println!("║        🦀 RUST ML v2.0 - PRODUCTION AI SHOWCASE 🦀             ║");
-    println!("║                                                                ║");
-    println!("║   Proving Rust can compete with Python for AI/ML workloads    ║");
-    println!("║                                                                ║");
-    println!("╚════════════════════════════════════════════════════════════════╝\n");
+    // Check if any CLI arguments were provided
+    let args: Vec<String> = std::env::args().collect();
     
-    if let Err(err) = run() {
-        eprintln!("❌ Failed: {err}");
-        std::process::exit(1);
+    if args.len() > 1 {
+        // Run CLI mode
+        cli::run_cli();
+    } else {
+        // Run original showcase mode
+        println!("\n╔════════════════════════════════════════════════════════════════╗");
+        println!("║                                                                ║");
+        println!("║        🦀 RUST ML v2.0 - PRODUCTION AI SHOWCASE 🦀             ║");
+        println!("║                                                                ║");
+        println!("║   Proving Rust can compete with Python for AI/ML workloads    ║");
+        println!("║                                                                ║");
+        println!("╚════════════════════════════════════════════════════════════════╝\n");
+        
+        println!("💡 Tip: Run with --help to see available commands\n");
+        
+        if let Err(err) = run() {
+            eprintln!("❌ Failed: {err}");
+            std::process::exit(1);
+        }
     }
 }
 
-// Gelişmiş Neural Network modeli - Dropout ile
+// Residual Block implementation
+#[derive(Debug)]
+struct ResidualBlock {
+    linear1: nn::Linear,
+    bn1: nn::BatchNorm,
+    linear2: nn::Linear,
+    bn2: nn::BatchNorm,
+    shortcut: Option<nn::Linear>,
+}
+
+impl ResidualBlock {
+    fn new(vs: &nn::Path, input_dim: i64, output_dim: i64) -> Self {
+        let linear1 = nn::linear(vs / "linear1", input_dim, output_dim, Default::default());
+        let bn1 = nn::batch_norm1d(vs / "bn1", output_dim, Default::default());
+        let linear2 = nn::linear(vs / "linear2", output_dim, output_dim, Default::default());
+        let bn2 = nn::batch_norm1d(vs / "bn2", output_dim, Default::default());
+        
+        // Shortcut connection if dimensions don't match
+        let shortcut = if input_dim != output_dim {
+            Some(nn::linear(vs / "shortcut", input_dim, output_dim, Default::default()))
+        } else {
+            None
+        };
+        
+        Self { linear1, bn1, linear2, bn2, shortcut }
+    }
+    
+    fn forward(&self, xs: &Tensor, train: bool) -> Tensor {
+        let mut out = xs.apply(&self.linear1)
+            .apply_t(&self.bn1, train)
+            .relu()
+            .dropout(0.3, train)
+            .apply(&self.linear2)
+            .apply_t(&self.bn2, train);
+        
+        // Add residual connection
+        let residual = if let Some(ref shortcut) = self.shortcut {
+            xs.apply(shortcut)
+        } else {
+            xs.shallow_clone()
+        };
+        
+        out = (out + residual).relu();
+        out
+    }
+}
+
+// Wrapper for BatchNorm to make it compatible with Sequential
+#[derive(Debug)]
+struct BatchNormWrapper {
+    bn: nn::BatchNorm,
+}
+
+impl BatchNormWrapper {
+    fn new(vs: &nn::Path, num_features: i64) -> Self {
+        Self {
+            bn: nn::batch_norm1d(vs, num_features, Default::default()),
+        }
+    }
+}
+
+impl nn::Module for BatchNormWrapper {
+    fn forward(&self, xs: &Tensor) -> Tensor {
+        xs.apply_t(&self.bn, true)
+    }
+}
+
+// Gelişmiş Neural Network modeli - Batch Normalization + Dropout + Residual Connections
 fn create_advanced_net(vs: &nn::Path, input_dim: i64, hidden_dims: &[i64], output_dim: i64) -> nn::Sequential {
     let mut seq = nn::seq();
     let mut prev_dim = input_dim;
@@ -38,6 +113,7 @@ fn create_advanced_net(vs: &nn::Path, input_dim: i64, hidden_dims: &[i64], outpu
                 hidden_dim,
                 Default::default(),
             ))
+            .add(BatchNormWrapper::new(&(vs / format!("bn{}", i + 1)), hidden_dim))
             .add_fn(|xs| xs.relu())
             .add_fn(|xs| xs.dropout(0.3, true));
         prev_dim = hidden_dim;
@@ -97,11 +173,13 @@ fn run() -> tch::Result<()> {
 
     // Hyperparameters
     let batch_size = 128i64;
-    let n_train = 1000i64;
-    let n_test = 200i64;
+    let n_train = 100_000i64;  // Increased from 1K to 100K
+    let n_test = 10_000i64;    // Increased proportionally (10%)
     let epochs = 50;
     let learning_rate = 1e-3;
-    let hidden_dims = vec![64, 128, 64];
+    // Large model: ~1.8M parameters
+    // Architecture: 20 -> 768 -> 1024 -> 768 -> 512 -> 2
+    let hidden_dims = vec![768, 1024, 768, 512];
     
     println!("╔════════════════════════════════════╗");
     println!("║     Model Configuration            ║");
@@ -120,6 +198,11 @@ fn run() -> tch::Result<()> {
     let net = create_advanced_net(&vs.root(), 20, &hidden_dims, 2);
     let mut optimizer = nn::Adam::default().build(&vs, learning_rate)?;
 
+    // Initialize Learning Rate Scheduler and Early Stopping
+    use rust_ml::utils::{LRScheduler, CosineAnnealingLR, EarlyStopping, EarlyStoppingMode};
+    let mut lr_scheduler = CosineAnnealingLR::new(learning_rate, epochs, learning_rate * 0.01);
+    let mut early_stopping = EarlyStopping::new(10, 0.001, EarlyStoppingMode::Max);
+
     // Veri oluştur
     println!("📊 Generating synthetic data...");
     let (train_x, train_y) = generate_synthetic_data(n_train, device);
@@ -132,8 +215,8 @@ fn run() -> tch::Result<()> {
     println!("╔════════════════════════════════════════════════════════════════╗");
     println!("║                        Training Progress                       ║");
     println!("╚════════════════════════════════════════════════════════════════╝");
-    println!(" Epoch │  Train Loss │ Train Acc │  Test Acc │    Time");
-    println!("───────┼─────────────┼───────────┼───────────┼──────────");
+    println!(" Epoch │  Train Loss │ Train Acc │  Test Acc │    LR    │  Time");
+    println!("───────┼─────────────┼───────────┼───────────┼──────────┼──────────");
 
     let mut best_test_acc = 0.0f64;
     let mut train_times = Vec::with_capacity(epochs);
@@ -174,16 +257,27 @@ fn run() -> tch::Result<()> {
             best_test_acc = test_acc;
         }
 
+        // Update learning rate
+        let current_lr = lr_scheduler.step(epoch);
+        optimizer.set_lr(current_lr);
+
+        // Check early stopping
+        if early_stopping.step(test_acc) {
+            println!("\n⚠️  Early stopping triggered at epoch {}", epoch);
+            println!("    Best test accuracy: {:.2}%", early_stopping.best_score().unwrap_or(0.0));
+            break;
+        }
+
         // Her 5 epoch'ta bir progress göster
         if epoch % 5 == 0 || epoch == 1 || epoch == epochs {
             println!(
-                " {:>5} │   {:>8.4}  │  {:>6.2}%  │  {:>6.2}%  │ {:>6.2} ms",
-                epoch, avg_loss, train_acc, test_acc, elapsed_ms
+                " {:>5} │   {:>8.4}  │  {:>6.2}%  │  {:>6.2}%  │ {:>7.5} │ {:>6.2} ms",
+                epoch, avg_loss, train_acc, test_acc, current_lr, elapsed_ms
             );
         }
     }
 
-    println!("───────┴─────────────┴───────────────┴───────────┴──────────");
+    println!("───────┴─────────────┴───────────────┴───────────┴──────────┴──────────");
     println!();
 
     // Final results

@@ -1,0 +1,30 @@
+# Default configuration for Rust ML
+
+[model]
+name = "mlp"
+input_dim = 784
+hidden_dims = [256, 128, 64]
+output_dim = 10
+dropout = 0.3
+activation = "relu"
+
+[training]
+epochs = 50
+batch_size = 128
+learning_rate = 0.001
+optimizer = "adam"
+weight_decay = 0.0
+checkpoint_interval = 10
+
+[data]
+train_samples = 10000
+test_samples = 2000
+validation_split = 0.2
+shuffle = true
+augmentation = false
+
+[logging]
+level = "info"
+log_interval = 5
+save_metrics = true
+metrics_path = "metrics.json"

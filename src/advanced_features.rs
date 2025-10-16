@@ -53,7 +53,7 @@ impl VectorDatabase {
         let norm_a = a.norm();
         let norm_b = b.norm();
         let similarity = dot_product / (norm_a * norm_b + 1e-8);
-        f64::try_from(similarity).unwrap_or(0.0)
+        similarity.double_value(&[])
     }
 }
 
